@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="uz">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1"
+    />
+    <title>Admin · Speaking Hub</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <style>
+      body {
+        background: radial-gradient(circle at top left, #1d1028 0, #050509 52%, #020205 100%);
+      }
+      .admin-shell {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 16px 16px 40px;
+      }
+      .admin-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 18px;
+      }
+      .admin-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+      }
+      .admin-sub {
+        font-size: 0.82rem;
+        color: var(--text-soft);
+      }
+      .admin-card {
+        background: rgba(10, 10, 18, 0.96);
+        border-radius: 18px;
+        padding: 16px 14px 14px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow: var(--shadow-card);
+      }
+      .admin-login {
+        max-width: 360px;
+        margin: 60px auto 0;
+      }
+      .admin-tabs {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 12px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        padding-bottom: 6px;
+      }
+      .admin-tab {
+        padding: 6px 12px;
+        font-size: 0.82rem;
+        border-radius: var(--radius-pill);
+        border: none;
+        cursor: pointer;
+        background: transparent;
+        color: var(--text-soft);
+      }
+      .admin-tab--active {
+        background: rgba(243, 111, 164, 0.16);
+        color: var(--accent-strong);
+      }
+      .admin-section {
+        display: none;
+      }
+      .admin-section--active {
+        display: block;
+      }
+      .admin-table-wrapper {
+        overflow-x: auto;
+        margin-top: 6px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.8rem;
+      }
+      th,
+      td {
+        padding: 6px 8px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        text-align: left;
+        white-space: nowrap;
+      }
+      th {
+        font-weight: 500;
+        color: var(--text-soft);
+        font-size: 0.78rem;
+      }
+      tr:last-child td {
+        border-bottom: none;
+      }
+      .pill {
+        padding: 3px 8px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        font-size: 0.75rem;
+      }
+      .admin-note {
+        font-size: 0.78rem;
+        color: var(--text-soft);
+        margin-top: 8px;
+      }
+      .status-btn {
+        padding: 4px 8px;
+        border-radius: 999px;
+        border: none;
+        font-size: 0.72rem;
+        cursor: pointer;
+        margin-right: 4px;
+        margin-bottom: 2px;
+        transition: transform 0.12s ease-out, box-shadow 0.12s ease-out, background 0.12s ease-out;
+        white-space: nowrap;
+      }
+      .status-btn--check {
+        background: rgba(60, 207, 145, 0.12);
+        color: var(--success);
+        box-shadow: 0 0 0 1px rgba(60, 207, 145, 0.45);
+      }
+      .status-btn--time {
+        background: rgba(92, 170, 255, 0.14);
+        color: #5cbbff;
+        box-shadow: 0 0 0 1px rgba(92, 170, 255, 0.4);
+      }
+      .status-btn--not {
+        background: rgba(255, 77, 106, 0.16);
+        color: var(--danger);
+        box-shadow: 0 0 0 1px rgba(255, 77, 106, 0.5);
+      }
+      .status-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+      }
+      .status-btn:active {
+        transform: translateY(0);
+        box-shadow: none;
+      }
+      tr.status-check {
+        background: radial-gradient(circle at left, rgba(60, 207, 145, 0.18), transparent);
+        animation: rowGlowGreen 0.35s ease-out;
+      }
+      tr.status-time {
+        background: radial-gradient(circle at left, rgba(92, 170, 255, 0.2), transparent);
+        animation: rowGlowBlue 0.35s ease-out;
+      }
+      tr.status-not {
+        background: radial-gradient(circle at left, rgba(255, 77, 106, 0.22), transparent);
+        animation: rowGlowRed 0.35s ease-out;
+      }
+      tr.status-not td {
+        text-decoration: line-through;
+        opacity: 0.75;
+      }
+      @keyframes rowGlowGreen {
+        from {
+          transform: scale(0.99);
+          box-shadow: 0 0 0 rgba(60, 207, 145, 0);
+        }
+        to {
+          transform: scale(1);
+          box-shadow: 0 0 0 rgba(60, 207, 145, 0.45);
+        }
+      }
+      @keyframes rowGlowBlue {
+        from {
+          transform: scale(0.99);
+          box-shadow: 0 0 0 rgba(92, 170, 255, 0);
+        }
+        to {
+          transform: scale(1);
+          box-shadow: 0 0 0 rgba(92, 170, 255, 0.45);
+        }
+      }
+      @keyframes rowGlowRed {
+        from {
+          transform: scale(0.99);
+          box-shadow: 0 0 0 rgba(255, 77, 106, 0);
+        }
+        to {
+          transform: scale(1);
+          box-shadow: 0 0 0 rgba(255, 77, 106, 0.5);
+        }
+      }
+      .inline-input {
+        width: 100%;
+        font-size: 0.8rem;
+        padding: 7px 8px;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        background: rgba(7, 7, 12, 0.96);
+        color: var(--text);
+      }
+      .inline-label {
+        font-size: 0.78rem;
+        color: var(--text-soft);
+        margin-bottom: 2px;
+      }
+      .admin-grid {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      }
+      .admin-field {
+        display: grid;
+        gap: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="admin-shell">
+      <header class="admin-header">
+        <div>
+          <div class="admin-title">Speaking Hub · Admin</div>
+          <div class="admin-sub">
+            Bu sahifa faqat Shahlo va kuratorlar uchun. O'quvchilar uchun mo'ljallanmagan.
+          </div>
+        </div>
+        <a href="./index.html" class="ghost-btn">Saytga o'tish</a>
+      </header>
+
+      <main id="admin-root">
+        <section id="admin-login" class="admin-login admin-card">
+          <h2 style="margin: 0 0 8px; font-size: 1rem">Kirish</h2>
+          <p class="admin-sub">
+            Maxfiy parolni kiriting. Parolni faqat ishonchli kuratorlarga bering.
+          </p>
+          <div class="field" style="margin-top: 12px">
+            <label for="adminPassword">Admin parol</label>
+            <input
+              type="password"
+              id="adminPassword"
+              class="inline-input"
+              placeholder="Parol"
+              autocomplete="current-password"
+            />
+          </div>
+          <button id="adminLoginBtn" class="primary-btn full-width" style="margin-top: 10px">
+            Kirish
+          </button>
+          <div id="adminLoginMsg" class="toast" style="margin-top: 10px"></div>
+        </section>
+
+        <section id="admin-panel" class="admin-card" style="display: none">
+          <div class="admin-tabs">
+            <button class="admin-tab admin-tab--active" data-tab="registrations">Ro'yxatdan
+              o'tganlar</button>
+            <button class="admin-tab" data-tab="content">Kontentni tahrirlash</button>
+          </div>
+
+          <div id="tab-registrations" class="admin-section admin-section--active">
+            <div class="admin-table-wrapper">
+              <table id="registrationsTable">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Ism</th>
+                    <th>Familiya</th>
+                    <th>Telefon</th>
+                    <th>Kurs</th>
+                    <th>Izoh</th>
+                    <th>Vaqt</th>
+                    <th>Holat</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+            <p class="admin-note">
+              Ma'lumotlar hozircha faqat brauzeringizning ichida (localStorage) saqlanadi.
+              Keyinchalik kerak bo'lsa backend bilan ulab chiqamiz.
+            </p>
+          </div>
+
+          <div id="tab-content" class="admin-section">
+            <h3 style="font-size: 0.9rem; margin: 0 0 6px">Umumiy ko'rinish</h3>
+            <div class="admin-grid" style="margin-bottom: 10px">
+              <div class="admin-field">
+                <span class="inline-label">Asosiy accent rangi</span>
+                <input type="color" id="fieldAccent" class="inline-input" />
+              </div>
+              <div class="admin-field">
+                <span class="inline-label">Ikkinchi accent rangi</span>
+                <input type="color" id="fieldAccentSecondary" class="inline-input" />
+              </div>
+              <div class="admin-field">
+                <span class="inline-label">Fon gradient (body background)</span>
+                <div style="display: flex; gap: 6px">
+                  <input
+                    type="color"
+                    id="fieldBgFrom"
+                    class="inline-input"
+                    style="max-width: 90px"
+                  />
+                  <input
+                    type="color"
+                    id="fieldBgTo"
+                    class="inline-input"
+                    style="max-width: 90px"
+                  />
+                </div>
+              </div>
+              <div class="admin-field">
+                <span class="inline-label">Telegram / WhatsApp link</span>
+                <input
+                  type="text"
+                  id="fieldWaLink"
+                  class="inline-input"
+                  placeholder="https://t.me/teacher_shahlo_admin"
+                />
+              </div>
+              <div class="admin-field">
+                <span class="inline-label">Messanger tugma matni</span>
+                <input
+                  type="text"
+                  id="fieldWaLabel"
+                  class="inline-input"
+                  placeholder="WhatsApp orqali yozish"
+                />
+              </div>
+            </div>
+
+            <h3 style="font-size: 0.9rem; margin: 4px 0 6px">Hero va Teacher</h3>
+            <div class="admin-grid" style="margin-bottom: 10px">
+              <div class="admin-field">
+                <span class="inline-label">Hero tagline (yuqori satr)</span>
+                <input
+                  type="text"
+                  id="fieldHeroTitle"
+                  class="inline-input"
+                  placeholder="Speaking Hub by Teacher Shahlo · Online ingliz tili kurslari"
+                />
+              </div>
+              <div class="admin-field">
+                <span class="inline-label">Hero sub-sarlavha</span>
+                <input
+                  type="text"
+                  id="fieldHeroSubtitle"
+                  class="inline-input"
+                  placeholder="Teacher Shahlo bilan 0 dan CEFR / IELTS darajalarigacha..."
+                />
+              </div>
+              <div class="admin-field">
+                <span class="inline-label">Hero asosiy matn</span>
+                <input
+                  type="text"
+                  id="fieldHeroMain"
+                  class="inline-input"
+                  placeholder="Ingliz tilida"
+                />
+              </div>
+              <div class="admin-field">
+                <span class="inline-label">Hero accent matn</span>
+                <input
+                  type="text"
+                  id="fieldHeroMainAccent"
+                  class="inline-input"
+                  placeholder="erkin gaplashishni"
+                />
+              </div>
+              <div class="admin-field">
+                <span class="inline-label">Hero yakun matn</span>
+                <input
+                  type="text"
+                  id="fieldHeroMainSuffix"
+                  class="inline-input"
+                  placeholder="boshlang"
+                />
+              </div>
+              <div class="admin-field">
+                <span class="inline-label">Hero 3-band</span>
+                <input
+                  type="text"
+                  id="fieldHeroHighlight3"
+                  class="inline-input"
+                  placeholder="Online format – telefoningizdan o'qishingiz mumkin"
+                />
+              </div>
+              <div class="admin-field">
+                <span class="inline-label">Asosiy CTA matni</span>
+                <input
+                  type="text"
+                  id="fieldPrimaryCta"
+                  class="inline-input"
+                  placeholder="Darsga yozilish"
+                />
+              </div>
+              <div class="admin-field">
+                <span class="inline-label">Teacher ismi (karta ostida)</span>
+                <input
+                  type="text"
+                  id="fieldHeroName"
+                  class="inline-input"
+                  placeholder="Teacher Shahlo"
+                />
+              </div>
+              <div class="admin-field">
+                <span class="inline-label">Teacher tajriba matni</span>
+                <input
+                  type="text"
+                  id="fieldHeroExp"
+                  class="inline-input"
+                  placeholder="1,5 yillik real sinovdan o'tgan mualliflik dasturi"
+                />
+              </div>
+              <div class="admin-field">
+                <span class="inline-label">Hero rasm manzili (URL yoki /imgs/...)</span>
+                <input
+                  type="text"
+                  id="fieldHeroImage"
+                  class="inline-input"
+                  placeholder="/imgs/shahlo.jpg"
+                />
+              </div>
+            </div>
+
+            <h3 style="font-size: 0.9rem; margin: 4px 0 6px">Bo'limlar va kurslar</h3>
+            <div class="admin-grid" style="margin-bottom: 10px">
+              <div class="admin-field">
+                <span class="inline-label">About sarlavhasi</span>
+                <input type="text" id="fieldAboutTitle" class="inline-input" />
+              </div>
+              <div class="admin-field">
+                <span class="inline-label">About izohi</span>
+                <input type="text" id="fieldAboutSubtitle" class="inline-input" />
+              </div>
+              <div class="admin-field">
+                <span class="inline-label">Kurslar sarlavhasi</span>
+                <input type="text" id="fieldCoursesTitle" class="inline-input" />
+              </div>
+              <div class="admin-field">
+                <span class="inline-label">Kurslar izohi</span>
+                <input type="text" id="fieldCoursesSubtitle" class="inline-input" />
+              </div>
+              <div class="admin-field">
+                <span class="inline-label">Bonuslar sarlavhasi</span>
+                <input type="text" id="fieldBonusesTitle" class="inline-input" />
+              </div>
+              <div class="admin-field">
+                <span class="inline-label">Bonuslar izohi</span>
+                <input type="text" id="fieldBonusesSubtitle" class="inline-input" />
+              </div>
+              <div class="admin-field">
+                <span class="inline-label">Ariza bo'limi sarlavhasi</span>
+                <input type="text" id="fieldRegisterTitle" class="inline-input" />
+              </div>
+              <div class="admin-field">
+                <span class="inline-label">Ariza bo'limi izohi</span>
+                <input type="text" id="fieldRegisterSubtitle" class="inline-input" />
+              </div>
+              <div class="admin-field">
+                <span class="inline-label">1-tarif nomi</span>
+                <input type="text" id="fieldCourse1Title" class="inline-input" />
+              </div>
+              <div class="admin-field">
+                <span class="inline-label">1-tarif tagline</span>
+                <input type="text" id="fieldCourse1Tagline" class="inline-input" />
+              </div>
+              <div class="admin-field">
+                <span class="inline-label">1-tarif narxi (matn)</span>
+                <input type="text" id="fieldCourse1Price" class="inline-input" />
+              </div>
+              <div class="admin-field">
+                <span class="inline-label">1-tarif tugma matni</span>
+                <input type="text" id="fieldCourse1Cta" class="inline-input" />
+              </div>
+              <div class="admin-field">
+                <span class="inline-label">2-tarif nomi</span>
+                <input type="text" id="fieldCourse2Title" class="inline-input" />
+              </div>
+              <div class="admin-field">
+                <span class="inline-label">2-tarif tagline</span>
+                <input type="text" id="fieldCourse2Tagline" class="inline-input" />
+              </div>
+              <div class="admin-field">
+                <span class="inline-label">2-tarif narxi (matn)</span>
+                <input type="text" id="fieldCourse2Price" class="inline-input" />
+              </div>
+              <div class="admin-field">
+                <span class="inline-label">2-tarif tugma matni</span>
+                <input type="text" id="fieldCourse2Cta" class="inline-input" />
+              </div>
+            </div>
+
+            <h3 style="font-size: 0.9rem; margin: 4px 0 6px">Bonuslar va footer</h3>
+            <div class="admin-grid">
+              <div class="admin-field">
+                <span class="inline-label">Bonus 1 sarlavha</span>
+                <input type="text" id="fieldBonus1Title" class="inline-input" />
+              </div>
+              <div class="admin-field">
+                <span class="inline-label">Bonus 1 matn</span>
+                <input type="text" id="fieldBonus1Body" class="inline-input" />
+              </div>
+              <div class="admin-field">
+                <span class="inline-label">Bonus 2 sarlavha</span>
+                <input type="text" id="fieldBonus2Title" class="inline-input" />
+              </div>
+              <div class="admin-field">
+                <span class="inline-label">Bonus 2 matn</span>
+                <input type="text" id="fieldBonus2Body" class="inline-input" />
+              </div>
+              <div class="admin-field">
+                <span class="inline-label">Bonus 3 sarlavha</span>
+                <input type="text" id="fieldBonus3Title" class="inline-input" />
+              </div>
+              <div class="admin-field">
+                <span class="inline-label">Bonus 3 matn</span>
+                <input type="text" id="fieldBonus3Body" class="inline-input" />
+              </div>
+              <div class="admin-field">
+                <span class="inline-label">Bonus 4 sarlavha</span>
+                <input type="text" id="fieldBonus4Title" class="inline-input" />
+              </div>
+              <div class="admin-field">
+                <span class="inline-label">Bonus 4 matn</span>
+                <input type="text" id="fieldBonus4Body" class="inline-input" />
+              </div>
+              <div class="admin-field">
+                <span class="inline-label">Footer brend matni</span>
+                <input type="text" id="fieldFooterBrand" class="inline-input" />
+              </div>
+              <div class="admin-field">
+                <span class="inline-label">Footer huquq matni</span>
+                <input type="text" id="fieldFooterRights" class="inline-input" />
+              </div>
+              <div class="admin-field">
+                <span class="inline-label">Footer qo'shimcha izoh</span>
+                <input type="text" id="fieldFooterNote" class="inline-input" />
+              </div>
+            </div>
+            <div style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap">
+              <button id="saveContentBtn" class="secondary-btn">
+                O'zgarishlarni saqlash
+              </button>
+              <button id="resetContentBtn" class="ghost-btn" type="button">
+                Saytni asli holiga qaytarish
+              </button>
+            </div>
+            <p class="admin-note">
+              Saqlangan matnlar avtomatik tarzda asosiy saytda ko'rinadi. Matnlarni
+              xohlaganingizcha o'zgartirib turishingiz mumkin.
+            </p>
+            <div id="contentMsg" class="toast" style="margin-top: 8px"></div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="./admin.js"></script>
+  </body>
+</html>
+

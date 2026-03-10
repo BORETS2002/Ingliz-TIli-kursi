@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgres:16
+    container_name: speakinghub_db
+    environment:
+      POSTGRES_USER: speakinghub
+      POSTGRES_PASSWORD: speakinghub
+      POSTGRES_DB: speakinghub
+    ports:
+      - "5432:5432"
+    volumes:
+      - speakinghub_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U speakinghub -d speakinghub"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  speakinghub_pg:
+
