@@ -21,7 +21,7 @@ const fastifyStatic = require("@fastify/static");
 
 const { migrate } = require("./src/migrate");
 const { buildDb } = require("./src/plugins/db");
-const { routes } = require("./src/routes");
+const routes = require("./src/routes");
 
 const isProd = process.env.NODE_ENV === "production";
 

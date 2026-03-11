@@ -23,7 +23,7 @@ async function ensureAdminUser(app) {
   app.log.info("Admin user created from env.");
 }
 
-async function routes(app) {
+async function registerRoutes(app) {
   await ensureAdminUser(app);
 
   app.post("/api/leads", async (request, reply) => {
@@ -79,20 +79,20 @@ async function routes(app) {
     const limit = Math.min(Number(req.query.limit || 500), 2000);
     const { rows } = await app.db.query(
       `SELECT id,
-              first_name AS "firstName",
-              last_name AS "lastName",
+              first_name,
+              last_name,
               phone,
               course,
               note,
               status,
-              status_updated_at AS "statusUpdatedAt",
-              created_at AS "createdAt"
+              status_updated_at,
+              created_at
        FROM registrations
        ORDER BY created_at DESC
        LIMIT $1`,
       [limit]
     );
-    return { items: rows };
+    return rows;
   });
 
   app.patch(
@@ -101,14 +101,15 @@ async function routes(app) {
     async (request, reply) => {
       const parsed = registrationStatusSchema.safeParse(request.body);
       if (!parsed.success) return reply.code(400).send({ error: "Invalid payload" });
-      const status = parsed.data.status;
+      const { status, note } = parsed.data;
       const id = request.params.id;
       const { rowCount } = await app.db.query(
         `UPDATE registrations
          SET status=$2,
+             note=$3,
              status_updated_at=NOW()
          WHERE id=$1`,
-        [id, status]
+        [id, status, note || ""]
       );
       if (rowCount === 0) return reply.code(404).send({ error: "Not found" });
       return { ok: true };
@@ -160,5 +161,4 @@ async function routes(app) {
   });
 }
 
-module.exports = { routes };
-
+module.exports = registerRoutes;

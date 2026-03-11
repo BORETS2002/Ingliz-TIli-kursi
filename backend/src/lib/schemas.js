@@ -10,6 +10,7 @@ const registrationCreateSchema = z.object({
 
 const registrationStatusSchema = z.object({
   status: z.enum(["new", "check", "time", "not"]),
+  note: z.string().max(500).optional().default(""),
 });
 
 const adminLoginSchema = z.object({
@@ -17,9 +18,7 @@ const adminLoginSchema = z.object({
   password: z.string().min(1).max(200),
 });
 
-const contentPatchSchema = z.object({
-  entries: z.record(z.string().min(1).max(100), z.string().max(20_000)),
-});
+const contentPatchSchema = z.record(z.string().min(1).max(100), z.string().max(20_000));
 
 module.exports = {
   registrationCreateSchema,
