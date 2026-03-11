@@ -84,6 +84,11 @@ async function start() {
 
   app.get("/health", async () => ({ ok: true }));
 
+  const fs = require('fs');
+  app.get("/admin", async (req, reply) => {
+    reply.type('text/html');
+    return fs.readFileSync(path.join(__dirname, "..", "admin.html"), "utf8");
+  });
   const host = process.env.HOST || "0.0.0.0";
   const port = Number(process.env.PORT || 3000);
   await app.listen({ host, port });

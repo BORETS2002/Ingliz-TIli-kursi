@@ -38,8 +38,8 @@ async function routes(app) {
 
     await app.db.query(
       `INSERT INTO registrations (id, first_name, last_name, phone, course, note, status, created_at)
-       VALUES ($1,$2,$3,$4,$5,$6,'new', NOW())`,
-      [id, body.firstName, body.lastName, body.phone, body.course, body.note || ""]
+       VALUES ($1,$2,$3,$4,$5,$6,'new', $7)`,
+      [id, body.firstName, body.lastName, body.phone, body.course, body.note || "", new Date().toISOString()]
     );
 
     return reply.code(201).send({ id });
@@ -69,11 +69,13 @@ async function routes(app) {
 
   app.get("/api/admin/registrations", { preHandler: requireAdmin }, async (req) => {
     // Drop expired "not" rows older than 1 hour
+    const oneHourAgo = new Date(Date.now() - 3600000).toISOString();
     await app.db.query(
       `DELETE FROM registrations
        WHERE status='not'
          AND status_updated_at IS NOT NULL
-         AND status_updated_at < NOW() - INTERVAL '1 hour'`
+         AND status_updated_at < $1`,
+      [oneHourAgo]
     );
 
     const limit = Math.min(Number(req.query.limit || 500), 2000);
@@ -103,14 +105,14 @@ async function routes(app) {
       if (!parsed.success) return reply.code(400).send({ error: "Invalid payload" });
       const status = parsed.data.status;
       const id = request.params.id;
-      const { rowCount } = await app.db.query(
+      const result = await app.db.query(
         `UPDATE registrations
          SET status=$2,
-             status_updated_at=NOW()
+             status_updated_at=$3
          WHERE id=$1`,
-        [id, status]
+        [id, status, new Date().toISOString()]
       );
-      if (rowCount === 0) return reply.code(404).send({ error: "Not found" });
+      if (result.rowCount === 0) return reply.code(404).send({ error: "Not found" });
       return { ok: true };
     }
   );
@@ -139,12 +141,13 @@ async function routes(app) {
       await client.query("BEGIN");
       for (const k of keys) {
         const v = entries[k];
+        const nowIso = new Date().toISOString();
         await client.query(
           `INSERT INTO content_kv (key, value, updated_at)
-           VALUES ($1,$2,NOW())
+           VALUES ($1,$2,$3)
            ON CONFLICT (key)
-           DO UPDATE SET value=EXCLUDED.value, updated_at=NOW()`,
-          [k, v]
+           DO UPDATE SET value=EXCLUDED.value, updated_at=$3`,
+          [k, v, nowIso]
         );
       }
       await client.query("COMMIT");

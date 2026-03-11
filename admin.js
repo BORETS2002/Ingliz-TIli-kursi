@@ -1,9 +1,10 @@
-const ADMIN_PASSWORD = "shahlo-admin";
+const API_BASE_URL =
+  window.API_BASE_URL ||
+  (typeof location !== "undefined" && location.hostname === "localhost"
+    ? "http://localhost:3000"
+    : "https://your-backend-url.example.com");
 
-const STORAGE_KEYS = {
-  registrations: "speakinghub_registrations",
-  content: "speakinghub_site_content",
-};
+let ADMIN_TOKEN = null;
 
 const DEFAULT_CONTENT = {
   heroTitle: "Speaking Hub by Teacher Shahlo · Online ingliz tili kurslari",
@@ -61,36 +62,40 @@ const DEFAULT_CONTENT = {
   waLabel: "WhatsApp orqali yozish",
 };
 
-function readRegistrations() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEYS.registrations);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (e) {
-    console.error("Failed to read registrations", e);
-    return [];
-  }
+async function fetchRegistrations() {
+  if (!ADMIN_TOKEN) return [];
+  const res = await fetch(`${API_BASE_URL}/api/admin/registrations`, {
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${ADMIN_TOKEN}`,
+    },
+  });
+  if (!res.ok) throw new Error("Failed to load registrations");
+  const data = await res.json();
+  return data.items || [];
 }
 
-function writeRegistrations(list) {
-  localStorage.setItem(STORAGE_KEYS.registrations, JSON.stringify(list));
+async function fetchContent() {
+  const res = await fetch(`${API_BASE_URL}/api/content`, {
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) throw new Error("Failed to load content");
+  const data = await res.json();
+  return data.entries || {};
 }
 
-function readContent() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEYS.content);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch (e) {
-    console.error("Failed to read content", e);
-    return {};
-  }
-}
-
-function writeContent(content) {
-  localStorage.setItem(STORAGE_KEYS.content, JSON.stringify(content));
+async function saveContentToServer(entries) {
+  if (!ADMIN_TOKEN) throw new Error("No admin token");
+  const res = await fetch(`${API_BASE_URL}/api/admin/content`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      Authorization: `Bearer ${ADMIN_TOKEN}`,
+    },
+    body: JSON.stringify({ entries }),
+  });
+  if (!res.ok) throw new Error("Failed to save content");
 }
 
 function formatDate(iso) {
@@ -110,21 +115,10 @@ function formatDate(iso) {
   }
 }
 
-function renderRegistrationsTable() {
+async function renderRegistrationsTable() {
   const tbody = document.querySelector("#registrationsTable tbody");
   if (!tbody) return;
-  const baseList = readRegistrations();
-  let changed = false;
-  baseList.forEach((item) => {
-    if (!item.id) {
-      item.id = Date.now().toString() + Math.random().toString(16).slice(2, 6);
-      changed = true;
-    }
-  });
-  if (changed) {
-    writeRegistrations(baseList);
-  }
-  const items = baseList.slice().reverse();
+  const items = await fetchRegistrations();
   tbody.innerHTML = "";
   items.forEach((item, idx) => {
     const tr = document.createElement("tr");
@@ -151,35 +145,18 @@ function renderRegistrationsTable() {
   });
 }
 
-function cleanupNotExpired() {
-  const list = readRegistrations();
-  const now = Date.now();
-  const oneHour = 60 * 60 * 1000;
-  const filtered = list.filter((item) => {
-    if (item.status !== "not" || !item.statusUpdatedAt) return true;
-    const ts = new Date(item.statusUpdatedAt).getTime();
-    if (Number.isNaN(ts)) return true;
-    return now - ts < oneHour;
+async function updateRegistrationStatus(id, status) {
+  if (!ADMIN_TOKEN) return;
+  await fetch(`${API_BASE_URL}/api/admin/registrations/${encodeURIComponent(id)}/status`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      Authorization: `Bearer ${ADMIN_TOKEN}`,
+    },
+    body: JSON.stringify({ status }),
   });
-  if (filtered.length !== list.length) {
-    writeRegistrations(filtered);
-  }
-}
-
-function updateRegistrationStatus(id, status) {
-  const list = readRegistrations();
-  const updated = list.map((item) =>
-    String(item.id) === String(id)
-      ? {
-          ...item,
-          status,
-          statusUpdatedAt: new Date().toISOString(),
-        }
-      : item
-  );
-  writeRegistrations(updated);
-  cleanupNotExpired();
-  renderRegistrationsTable();
+  await renderRegistrationsTable();
 }
 
 function setupTabs() {
@@ -212,7 +189,7 @@ function showAdminToast(el, message, type = "success") {
 }
 
 function populateContentFields() {
-  const content = readContent();
+  const content = window.__ADMIN_CONTENT__ || {};
   const heroTitle = document.getElementById("fieldHeroTitle");
   const heroSubtitle = document.getElementById("fieldHeroSubtitle");
   if (heroTitle && content.heroTitle) heroTitle.value = content.heroTitle;
@@ -275,23 +252,39 @@ document.addEventListener("DOMContentLoaded", () => {
   const loginBtn = document.getElementById("adminLoginBtn");
   const loginMsg = document.getElementById("adminLoginMsg");
 
-  loginBtn?.addEventListener("click", () => {
+  loginBtn?.addEventListener("click", async () => {
     const pwdInput = document.getElementById("adminPassword");
     const pwd = pwdInput?.value ?? "";
     if (!pwd) {
       showAdminToast(loginMsg, "Parolni kiriting.", "error");
       return;
     }
-    if (pwd !== ADMIN_PASSWORD) {
-      showAdminToast(loginMsg, "Noto'g'ri parol. Yana bir bor urinib ko'ring.", "error");
-      return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({ username: "admin", password: pwd }),
+      });
+      if (!res.ok) {
+        showAdminToast(loginMsg, "Noto'g'ri parol yoki login.", "error");
+        return;
+      }
+      const data = await res.json();
+      ADMIN_TOKEN = data.token;
+      if (loginSection) loginSection.style.display = "none";
+      if (panelSection) panelSection.style.display = "block";
+      const content = await fetchContent();
+      window.__ADMIN_CONTENT__ = content;
+      await renderRegistrationsTable();
+      setupTabs();
+      populateContentFields();
+    } catch (e) {
+      console.error(e);
+      showAdminToast(loginMsg, "Server bilan bog'lanib bo'lmadi.", "error");
     }
-    if (loginSection) loginSection.style.display = "none";
-    if (panelSection) panelSection.style.display = "block";
-    cleanupNotExpired();
-    renderRegistrationsTable();
-    setupTabs();
-    populateContentFields();
   });
 
   const table = document.getElementById("registrationsTable");
@@ -311,7 +304,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const saveContentBtn = document.getElementById("saveContentBtn");
   const contentMsg = document.getElementById("contentMsg");
-  saveContentBtn?.addEventListener("click", () => {
+  saveContentBtn?.addEventListener("click", async () => {
     const heroTitle = document.getElementById("fieldHeroTitle")?.value.trim();
     const heroSubtitle = document.getElementById("fieldHeroSubtitle")?.value.trim();
     const current = readContent();
@@ -403,19 +396,31 @@ document.addEventListener("DOMContentLoaded", () => {
         DEFAULT_CONTENT.waLabel,
     };
     next.themeBg = `radial-gradient(circle at top left, ${next.bgFrom} 0, ${next.bgTo} 46%, #050509 100%)`;
-    writeContent(next);
-    showAdminToast(contentMsg, "Saqlangan. Asosiy saytni yangilab ko'ring.", "success");
+    try {
+      await saveContentToServer(next);
+      window.__ADMIN_CONTENT__ = next;
+      showAdminToast(contentMsg, "Saqlangan. Asosiy saytni yangilab ko'ring.", "success");
+    } catch (e) {
+      console.error(e);
+      showAdminToast(contentMsg, "Saqlab bo'lmadi. Keyinroq urinib ko'ring.", "error");
+    }
   });
 
   const resetBtn = document.getElementById("resetContentBtn");
-  resetBtn?.addEventListener("click", () => {
-    writeContent(DEFAULT_CONTENT);
-    populateContentFields();
-    showAdminToast(
-      contentMsg,
-      "Barcha kontent va ranglar asl holatiga qaytarildi. Asosiy saytni yangilang.",
-      "success"
-    );
+  resetBtn?.addEventListener("click", async () => {
+    try {
+      await saveContentToServer(DEFAULT_CONTENT);
+      window.__ADMIN_CONTENT__ = DEFAULT_CONTENT;
+      populateContentFields();
+      showAdminToast(
+        contentMsg,
+        "Barcha kontent va ranglar asl holatiga qaytarildi. Asosiy saytni yangilang.",
+        "success"
+      );
+    } catch (e) {
+      console.error(e);
+      showAdminToast(contentMsg, "Qaytarib bo'lmadi. Keyinroq urinib ko'ring.", "error");
+    }
   });
 });
 
