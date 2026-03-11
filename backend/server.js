@@ -29,12 +29,6 @@ async function start() {
   const app = Fastify({
     logger: {
       level: process.env.LOG_LEVEL || (isProd ? "info" : "debug"),
-      transport: isProd
-        ? undefined
-        : {
-            target: "pino-pretty",
-            options: { translateTime: "SYS:standard", ignore: "pid,hostname" },
-          },
     },
     trustProxy: true,
     bodyLimit: 1024 * 64,
