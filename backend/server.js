@@ -43,7 +43,19 @@ async function start() {
     keepAliveTimeout: 60_000,
   });
 
-  await app.register(helmet, { global: true });
+  await app.register(helmet, {
+    global: true,
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "https:"],
+        connectSrc: ["'self'"],
+      },
+    },
+  });
   await app.register(cors, {
     origin: (origin, cb) => {
       // Allow same-origin, file:// (no origin), and explicit allowlist.
