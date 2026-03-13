@@ -4,7 +4,8 @@ const API_BASE_URL =
     ? "http://localhost:3000"
     : "");
 
-let ADMIN_TOKEN = null;
+const TOKEN_KEY = "speakinghub_admin_token";
+let ADMIN_TOKEN = localStorage.getItem(TOKEN_KEY);
 
 const DEFAULT_CONTENT = {
   heroTitle: "Speaking Hub by Teacher Shahlo · Online ingliz tili kurslari",
@@ -274,18 +275,43 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       const data = await res.json();
       ADMIN_TOKEN = data.token;
-      if (loginSection) loginSection.style.display = "none";
-      if (panelSection) panelSection.style.display = "block";
+      localStorage.setItem(TOKEN_KEY, ADMIN_TOKEN);
+      showDashboard();
+    } catch (e) {
+      console.error(e);
+      showAdminToast(loginMsg, "Server bilan bog'lanib bo'lmadi.", "error");
+    }
+  });
+
+  async function showDashboard() {
+    if (loginSection) loginSection.style.display = "none";
+    if (panelSection) panelSection.style.display = "block";
+    try {
       const content = await fetchContent();
       window.__ADMIN_CONTENT__ = content;
       await renderRegistrationsTable();
       setupTabs();
       populateContentFields();
     } catch (e) {
-      console.error(e);
-      showAdminToast(loginMsg, "Server bilan bog'lanib bo'lmadi.", "error");
+      console.error("Dashboard yuklashda xatolik:", e);
+      // Agar token muddati o'tgan bo'lsa yoki noto'g'ri bo'lsa
+      if (e.message.includes("401") || e.message.includes("token")) {
+        logout();
+      }
     }
-  });
+  }
+
+  function logout() {
+    ADMIN_TOKEN = null;
+    localStorage.removeItem(TOKEN_KEY);
+    if (loginSection) loginSection.style.display = "block";
+    if (panelSection) panelSection.style.display = "none";
+  }
+
+  // Sahifa yuklanganda token bo'lsa avtomatik dashboardni ko'rsatish
+  if (ADMIN_TOKEN) {
+    showDashboard();
+  }
 
   const table = document.getElementById("registrationsTable");
   table?.addEventListener("click", (event) => {
