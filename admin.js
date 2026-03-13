@@ -2,7 +2,7 @@ const API_BASE_URL =
   window.API_BASE_URL ||
   (typeof location !== "undefined" && location.hostname === "localhost"
     ? "http://localhost:3000"
-    : "https://your-backend-url.example.com");
+    : "");
 
 let ADMIN_TOKEN = null;
 
