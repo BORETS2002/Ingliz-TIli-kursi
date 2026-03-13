@@ -112,21 +112,7 @@ async function fetchContent() {
   }
 }
 
-function saveOfflineLead(entry) {
-  try {
-    const raw = localStorage.getItem(OFFLINE_STORAGE_KEY);
-    const list = raw ? JSON.parse(raw) : [];
-    const safeList = Array.isArray(list) ? list : [];
-    safeList.push({
-      ...entry,
-      id: Date.now().toString(),
-      createdAt: new Date().toISOString(),
-    });
-    localStorage.setItem(OFFLINE_STORAGE_KEY, JSON.stringify(safeList));
-  } catch {
-    // localStorage ishlamasa ham foydalanuvchini to'xtatmaymiz
-  }
-}
+
 
 function scrollToForm() {
   const el = document.getElementById("register");
@@ -204,18 +190,7 @@ async function handleFormSubmit(event) {
     showToast("Arizangiz qabul qilindi! Kuratorimiz tez orada bog'lanadi.", "success");
   } catch (e) {
     console.error(e);
-    saveOfflineLead({
-      firstName,
-      lastName,
-      phone: "+998" + phone,
-      course,
-      note,
-    });
-    form.reset();
-    showToast(
-      "Server bilan bog'lanib bo'lmadi, lekin arizangiz vaqtincha saqlandi.",
-      "success"
-    );
+    showToast("Server bilan bog'lanib bo'lmadi. Iltimos, keyinroq qayta urunib ko'ring.", "error");
   }
 }
 
