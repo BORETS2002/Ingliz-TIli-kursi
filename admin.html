@@ -9,245 +9,234 @@
     <title>Admin · Speaking Hub</title>
     <link rel="stylesheet" href="./styles.css" />
     <style>
+      :root {
+        --admin-bg: #050508;
+        --admin-card: rgba(14, 15, 23, 0.9);
+        --admin-glow: rgba(243, 111, 164, 0.15);
+      }
       body {
         background: radial-gradient(circle at top left, #1d1028 0, #050509 52%, #020205 100%);
+        min-height: 100vh;
+        overflow-x: hidden;
       }
+      
+      /* Loading Screen */
+      #admin-loader {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        background: var(--admin-bg);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        transition: opacity 0.4s ease, visibility 0.4s ease;
+      }
+      .spinner {
+        width: 40px;
+        height: 40px;
+        border: 3px solid rgba(255,255,255,0.1);
+        border-top-color: var(--accent);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        margin-bottom: 16px;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+
       .admin-shell {
-        max-width: 1100px;
+        max-width: 1200px;
         margin: 0 auto;
-        padding: 16px 16px 40px;
+        padding: 20px 20px 60px;
+        opacity: 0;
+        transform: translateY(10px);
+        transition: opacity 0.6s ease, transform 0.6s ease;
       }
+      .admin-shell--ready {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
       .admin-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 18px;
+        margin-bottom: 30px;
+        backdrop-filter: blur(10px);
+        padding: 15px 20px;
+        border-radius: 20px;
+        background: rgba(255,255,255,0.03);
+        border: 1px solid rgba(255,255,255,0.05);
       }
-      .admin-title {
-        font-size: 1.1rem;
-        font-weight: 600;
+      .admin-title-group h1 {
+        font-size: 1.25rem;
+        margin: 0;
+        font-weight: 700;
+        background: linear-gradient(90deg, #fff, var(--text-soft));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
       }
       .admin-sub {
-        font-size: 0.82rem;
+        font-size: 0.85rem;
         color: var(--text-soft);
+        opacity: 0.8;
       }
+
       .admin-card {
-        background: rgba(10, 10, 18, 0.96);
-        border-radius: 18px;
-        padding: 16px 14px 14px;
+        background: var(--admin-card);
+        border-radius: 24px;
+        padding: 24px;
         border: 1px solid rgba(255, 255, 255, 0.08);
-        box-shadow: var(--shadow-card);
+        box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+        backdrop-filter: blur(20px);
       }
-      .admin-login {
-        max-width: 360px;
-        margin: 60px auto 0;
+
+      .admin-login-box {
+        max-width: 400px;
+        margin: 80px auto 0;
+        text-align: center;
       }
+      .login-icon {
+        width: 64px;
+        height: 64px;
+        background: var(--admin-glow);
+        border-radius: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 20px;
+        color: var(--accent);
+        font-size: 1.5rem;
+        border: 1px solid rgba(243, 111, 164, 0.3);
+      }
+
       .admin-tabs {
         display: flex;
-        gap: 6px;
-        margin-bottom: 12px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-        padding-bottom: 6px;
+        gap: 8px;
+        margin-bottom: 24px;
+        background: rgba(0,0,0,0.2);
+        padding: 6px;
+        border-radius: 14px;
+        width: fit-content;
       }
       .admin-tab {
-        padding: 6px 12px;
-        font-size: 0.82rem;
-        border-radius: var(--radius-pill);
+        padding: 10px 18px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        border-radius: 10px;
         border: none;
         cursor: pointer;
         background: transparent;
         color: var(--text-soft);
+        transition: all 0.2s ease;
       }
       .admin-tab--active {
-        background: rgba(243, 111, 164, 0.16);
-        color: var(--accent-strong);
+        background: var(--accent);
+        color: #000;
+        box-shadow: 0 4px 15px rgba(243, 111, 164, 0.3);
       }
-      .admin-section {
-        display: none;
+      
+      .admin-section { display: none; animation: fadeIn 0.3s ease; }
+      .admin-section--active { display: block; }
+      @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+      .table-container {
+        border-radius: 16px;
+        overflow: hidden;
+        border: 1px solid rgba(255,255,255,0.05);
+        background: rgba(0,0,0,0.2);
       }
-      .admin-section--active {
-        display: block;
+      table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+      th { text-align: left; padding: 14px 16px; background: rgba(255,255,255,0.03); color: var(--text-soft); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
+      td { padding: 14px 16px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+      tr:hover td { background: rgba(255,255,255,0.01); }
+
+      .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 10px;
+        border-radius: 8px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
       }
-      .admin-table-wrapper {
-        overflow-x: auto;
-        margin-top: 6px;
-      }
-      table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 0.8rem;
-      }
-      th,
-      td {
-        padding: 6px 8px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-        text-align: left;
-        white-space: nowrap;
-      }
-      th {
-        font-weight: 500;
-        color: var(--text-soft);
-        font-size: 0.78rem;
-      }
-      tr:last-child td {
-        border-bottom: none;
-      }
-      .pill {
-        padding: 3px 8px;
-        border-radius: 999px;
-        background: rgba(255, 255, 255, 0.03);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        font-size: 0.75rem;
-      }
-      .admin-note {
-        font-size: 0.78rem;
-        color: var(--text-soft);
-        margin-top: 8px;
-      }
-      .status-btn {
-        padding: 4px 8px;
-        border-radius: 999px;
-        border: none;
-        font-size: 0.72rem;
-        cursor: pointer;
-        margin-right: 4px;
-        margin-bottom: 2px;
-        transition: transform 0.12s ease-out, box-shadow 0.12s ease-out, background 0.12s ease-out;
-        white-space: nowrap;
-      }
-      .status-btn--check {
-        background: rgba(60, 207, 145, 0.12);
-        color: var(--success);
-        box-shadow: 0 0 0 1px rgba(60, 207, 145, 0.45);
-      }
-      .status-btn--time {
-        background: rgba(92, 170, 255, 0.14);
-        color: #5cbbff;
-        box-shadow: 0 0 0 1px rgba(92, 170, 255, 0.4);
-      }
-      .status-btn--not {
-        background: rgba(255, 77, 106, 0.16);
-        color: var(--danger);
-        box-shadow: 0 0 0 1px rgba(255, 77, 106, 0.5);
-      }
-      .status-btn:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
-      }
-      .status-btn:active {
-        transform: translateY(0);
-        box-shadow: none;
-      }
-      tr.status-check {
-        background: radial-gradient(circle at left, rgba(60, 207, 145, 0.18), transparent);
-        animation: rowGlowGreen 0.35s ease-out;
-      }
-      tr.status-time {
-        background: radial-gradient(circle at left, rgba(92, 170, 255, 0.2), transparent);
-        animation: rowGlowBlue 0.35s ease-out;
-      }
-      tr.status-not {
-        background: radial-gradient(circle at left, rgba(255, 77, 106, 0.22), transparent);
-        animation: rowGlowRed 0.35s ease-out;
-      }
-      tr.status-not td {
-        text-decoration: line-through;
-        opacity: 0.75;
-      }
-      @keyframes rowGlowGreen {
-        from {
-          transform: scale(0.99);
-          box-shadow: 0 0 0 rgba(60, 207, 145, 0);
-        }
-        to {
-          transform: scale(1);
-          box-shadow: 0 0 0 rgba(60, 207, 145, 0.45);
-        }
-      }
-      @keyframes rowGlowBlue {
-        from {
-          transform: scale(0.99);
-          box-shadow: 0 0 0 rgba(92, 170, 255, 0);
-        }
-        to {
-          transform: scale(1);
-          box-shadow: 0 0 0 rgba(92, 170, 255, 0.45);
-        }
-      }
-      @keyframes rowGlowRed {
-        from {
-          transform: scale(0.99);
-          box-shadow: 0 0 0 rgba(255, 77, 106, 0);
-        }
-        to {
-          transform: scale(1);
-          box-shadow: 0 0 0 rgba(255, 77, 106, 0.5);
-        }
-      }
+
       .inline-input {
         width: 100%;
-        font-size: 0.8rem;
-        padding: 7px 8px;
-        border-radius: 10px;
-        border: 1px solid rgba(255, 255, 255, 0.14);
-        background: rgba(7, 7, 12, 0.96);
-        color: var(--text);
+        background: rgba(0,0,0,0.3);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 12px;
+        padding: 12px;
+        color: #fff;
+        transition: border-color 0.2s, box-shadow 0.2s;
       }
-      .inline-label {
-        font-size: 0.78rem;
-        color: var(--text-soft);
-        margin-bottom: 2px;
-      }
-      .admin-grid {
-        display: grid;
-        gap: 10px;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      }
-      .admin-field {
-        display: grid;
-        gap: 4px;
+      .inline-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--admin-glow); outline: none; }
+      
+      .save-bar {
+        position: sticky;
+        bottom: 20px;
+        background: rgba(14, 15, 23, 0.8);
+        backdrop-filter: blur(15px);
+        padding: 15px 25px;
+        border-radius: 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 30px;
+        border: 1px solid rgba(255,255,255,0.1);
+        box-shadow: 0 -10px 40px rgba(0,0,0,0.4);
+        z-index: 100;
       }
     </style>
   </head>
   <body>
-    <div class="admin-shell">
+    <!-- Loading Overlay -->
+    <div id="admin-loader">
+      <div class="spinner"></div>
+      <div class="admin-sub">Xavfsiz ulanish tekshirilmoqda...</div>
+    </div>
+
+    <div class="admin-shell" id="admin-shell">
       <header class="admin-header">
-        <div>
-          <div class="admin-title">Speaking Hub · Admin</div>
-          <div class="admin-sub">
-            Bu sahifa faqat Shahlo va kuratorlar uchun. O'quvchilar uchun mo'ljallanmagan.
-          </div>
+        <div class="admin-title-group">
+          <h1>Speaking Hub Admin</h1>
+          <p class="admin-sub">Boshqaruv paneli v2.0</p>
         </div>
-        <a href="./index.html" class="ghost-btn">Saytga o'tish</a>
+        <div style="display: flex; gap: 10px">
+          <a href="./index.html" class="ghost-btn">Saytni ko'rish</a>
+          <button id="logoutBtn" class="ghost-btn" style="display:none; color: var(--danger); border-color: var(--danger)">Chiqish</button>
+        </div>
       </header>
 
       <main id="admin-root">
-        <section id="admin-login" class="admin-login admin-card">
-          <h2 style="margin: 0 0 8px; font-size: 1rem">Kirish</h2>
-          <p class="admin-sub">
-            Maxfiy parolni kiriting. Parolni faqat ishonchli kuratorlarga bering.
+        <!-- Modern Login Section -->
+        <section id="admin-login" class="admin-login-box admin-card">
+          <div class="login-icon">✦</div>
+          <h2 style="margin: 0 0 10px; font-size: 1.4rem">Xush kelibsiz</h2>
+          <p class="admin-sub" style="margin-bottom: 25px">
+            Dashboardga kirish uchun maxfiy parolni kiriting.
           </p>
-          <div class="field" style="margin-top: 12px">
-            <label for="adminPassword">Admin parol</label>
+          <div class="field" style="text-align: left">
+            <label for="adminPassword" style="margin-bottom: 8px; display: block">Admin parol</label>
             <input
-              type="text"
+              type="password"
               id="adminPassword"
               class="inline-input"
-              placeholder="Parol"
+              placeholder="••••••••"
               autocomplete="current-password"
             />
           </div>
-          <button id="adminLoginBtn" class="primary-btn full-width" style="margin-top: 10px">
+          <button id="adminLoginBtn" class="primary-btn full-width" style="margin-top: 20px; height: 50px; font-size: 1rem">
             Kirish
           </button>
-          <div id="adminLoginMsg" class="toast" style="margin-top: 10px"></div>
+          <div id="adminLoginMsg" class="toast" style="margin-top: 15px"></div>
         </section>
 
+        <!-- Main Panel Section -->
         <section id="admin-panel" class="admin-card" style="display: none">
           <div class="admin-tabs">
-            <button class="admin-tab admin-tab--active" data-tab="registrations">Ro'yxatdan
-              o'tganlar</button>
-            <button class="admin-tab" data-tab="content">Kontentni tahrirlash</button>
+            <button class="admin-tab admin-tab--active" data-tab="registrations">Arizalar</button>
+            <button class="admin-tab" data-tab="content">Sayt tahriri</button>
           </div>
 
           <div id="tab-registrations" class="admin-section admin-section--active">
@@ -530,19 +519,20 @@
                 <input type="text" id="fieldFooterNote" class="inline-input" />
               </div>
             </div>
-            <div style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap">
-              <button id="saveContentBtn" class="secondary-btn">
-                O'zgarishlarni saqlash
-              </button>
-              <button id="resetContentBtn" class="ghost-btn" type="button">
-                Saytni asli holiga qaytarish
-              </button>
+            <div class="save-bar">
+              <div id="contentMsg" class="toast"></div>
+              <div style="display: flex; gap: 12px">
+                <button id="resetContentBtn" class="ghost-btn" type="button" style="color: rgba(255,255,255,0.4)">
+                  Reset
+                </button>
+                <button id="saveContentBtn" class="primary-btn">
+                  Saqlash
+                </button>
+              </div>
             </div>
-            <p class="admin-note">
-              Saqlangan matnlar avtomatik tarzda asosiy saytda ko'rinadi. Matnlarni
-              xohlaganingizcha o'zgartirib turishingiz mumkin.
+            <p class="admin-note" style="margin-top: 20px; text-align: center; font-size: 0.75rem; opacity: 0.5;">
+              Saqlangan matnlar avtomatik tarzda asosiy saytda ko'rinadi.
             </p>
-            <div id="contentMsg" class="toast" style="margin-top: 8px"></div>
           </div>
         </section>
       </main>

@@ -63,37 +63,40 @@ const DEFAULT_CONTENT = {
   waLabel: "WhatsApp orqali yozish",
 };
 
+async function apiFetch(path, options = {}) {
+  const headers = {
+    Accept: "application/json",
+    ...options.headers,
+  };
+  if (ADMIN_TOKEN) {
+    headers.Authorization = `Bearer ${ADMIN_TOKEN}`;
+  }
+  const res = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
+  if (res.status === 401) {
+    logout();
+    throw new Error("Sessiya muddati tugadi. Iltimos qayta kiring.");
+  }
+  return res;
+}
+
 async function fetchRegistrations() {
-  if (!ADMIN_TOKEN) return [];
-  const res = await fetch(`${API_BASE_URL}/api/admin/registrations`, {
-    headers: {
-      Accept: "application/json",
-      Authorization: `Bearer ${ADMIN_TOKEN}`,
-    },
-  });
+  const res = await apiFetch("/api/admin/registrations");
   if (!res.ok) throw new Error("Failed to load registrations");
   const data = await res.json();
   return data.items || [];
 }
 
 async function fetchContent() {
-  const res = await fetch(`${API_BASE_URL}/api/content`, {
-    headers: { Accept: "application/json" },
-  });
+  const res = await apiFetch("/api/content");
   if (!res.ok) throw new Error("Failed to load content");
   const data = await res.json();
   return data.entries || {};
 }
 
 async function saveContentToServer(entries) {
-  if (!ADMIN_TOKEN) throw new Error("No admin token");
-  const res = await fetch(`${API_BASE_URL}/api/admin/content`, {
+  const res = await apiFetch("/api/admin/content", {
     method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-      Authorization: `Bearer ${ADMIN_TOKEN}`,
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ entries }),
   });
   if (!res.ok) throw new Error("Failed to save content");
@@ -119,45 +122,51 @@ function formatDate(iso) {
 async function renderRegistrationsTable() {
   const tbody = document.querySelector("#registrationsTable tbody");
   if (!tbody) return;
-  const items = await fetchRegistrations();
-  tbody.innerHTML = "";
-  items.forEach((item, idx) => {
-    const tr = document.createElement("tr");
-    const status = item.status ?? "";
-    if (status === "check") tr.classList.add("status-check");
-    if (status === "time") tr.classList.add("status-time");
-    if (status === "not") tr.classList.add("status-not");
-    tr.dataset.id = item.id ?? "";
-    tr.innerHTML = `
-      <td>${idx + 1}</td>
-      <td>${item.firstName ?? ""}</td>
-      <td>${item.lastName ?? ""}</td>
-      <td><span class="pill">${item.phone ?? ""}</span></td>
-      <td>${item.course ?? ""}</td>
-      <td>${item.note ? item.note.slice(0, 60) : ""}</td>
-      <td>${formatDate(item.createdAt)}</td>
-      <td>
-        <button class="status-btn status-btn--check" data-action="check">check</button>
-        <button class="status-btn status-btn--time" data-action="time">time</button>
-        <button class="status-btn status-btn--not" data-action="not">not</button>
-      </td>
-    `;
-    tbody.appendChild(tr);
-  });
+  try {
+    const items = await fetchRegistrations();
+    tbody.innerHTML = "";
+    items.forEach((item, idx) => {
+      const tr = document.createElement("tr");
+      const status = item.status ?? "";
+      tr.dataset.id = item.id ?? "";
+      
+      const statusClass = status ? `status-${status}` : "";
+      if (statusClass) tr.classList.add(statusClass);
+
+      tr.innerHTML = `
+        <td>${idx + 1}</td>
+        <td>${item.firstName ?? ""}</td>
+        <td>${item.lastName ?? ""}</td>
+        <td><span class="pill">${item.phone ?? ""}</span></td>
+        <td>${item.course ?? ""}</td>
+        <td style="max-width:200px; overflow:hidden; text-overflow:ellipsis;">${item.note || ""}</td>
+        <td>${formatDate(item.createdAt)}</td>
+        <td>
+          <div style="display:flex; gap:4px">
+            <button class="status-btn status-btn--check" data-action="check" title="Tekshirildi">✓</button>
+            <button class="status-btn status-btn--time" data-action="time" title="Kutilmoqda">◷</button>
+            <button class="status-btn status-btn--not" data-action="not" title="Rad etildi">✕</button>
+          </div>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  } catch (e) {
+    console.error(e);
+  }
 }
 
 async function updateRegistrationStatus(id, status) {
-  if (!ADMIN_TOKEN) return;
-  await fetch(`${API_BASE_URL}/api/admin/registrations/${encodeURIComponent(id)}/status`, {
-    method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-      Authorization: `Bearer ${ADMIN_TOKEN}`,
-    },
-    body: JSON.stringify({ status }),
-  });
-  await renderRegistrationsTable();
+  try {
+    await apiFetch(`/api/admin/registrations/${encodeURIComponent(id)}/status`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+    await renderRegistrationsTable();
+  } catch (e) {
+    alert(e.message);
+  }
 }
 
 function setupTabs() {
@@ -186,267 +195,182 @@ function showAdminToast(el, message, type = "success") {
   setTimeout(() => {
     el.className = "toast";
     el.textContent = "";
-  }, 3500);
+  }, 4000);
 }
 
 function populateContentFields() {
   const content = window.__ADMIN_CONTENT__ || {};
-  const heroTitle = document.getElementById("fieldHeroTitle");
-  const heroSubtitle = document.getElementById("fieldHeroSubtitle");
-  if (heroTitle && content.heroTitle) heroTitle.value = content.heroTitle;
-  if (heroSubtitle && content.heroSubtitle) heroSubtitle.value = content.heroSubtitle;
   const setVal = (id, key) => {
     const el = document.getElementById(id);
-    if (el && content[key]) el.value = content[key];
+    if (el) el.value = content[key] || DEFAULT_CONTENT[key] || "";
   };
-  setVal("fieldHeroMain", "heroMain");
-  setVal("fieldHeroMainAccent", "heroMainAccent");
-  setVal("fieldHeroMainSuffix", "heroMainSuffix");
-  setVal("fieldHeroHighlight3", "heroHighlight3");
-  setVal("fieldPrimaryCta", "primaryCta");
-  setVal("fieldHeroName", "heroName");
-  setVal("fieldHeroExp", "heroExp");
-  setVal("fieldHeroImage", "heroImage");
-  setVal("fieldAboutTitle", "aboutTitle");
-  setVal("fieldAboutSubtitle", "aboutSubtitle");
-  setVal("fieldCoursesTitle", "coursesTitle");
-  setVal("fieldCoursesSubtitle", "coursesSubtitle");
-  setVal("fieldBonusesTitle", "bonusesTitle");
-  setVal("fieldBonusesSubtitle", "bonusesSubtitle");
-  setVal("fieldRegisterTitle", "registerTitle");
-  setVal("fieldRegisterSubtitle", "registerSubtitle");
-  setVal("fieldCourse1Title", "course1Title");
-  setVal("fieldCourse1Tagline", "course1Tagline");
-  setVal("fieldCourse1Price", "course1Price");
-  setVal("fieldCourse1Cta", "course1Cta");
-  setVal("fieldCourse2Title", "course2Title");
-  setVal("fieldCourse2Tagline", "course2Tagline");
-  setVal("fieldCourse2Price", "course2Price");
-  setVal("fieldCourse2Cta", "course2Cta");
-  setVal("fieldBonus1Title", "bonus1Title");
-  setVal("fieldBonus1Body", "bonus1Body");
-  setVal("fieldBonus2Title", "bonus2Title");
-  setVal("fieldBonus2Body", "bonus2Body");
-  setVal("fieldBonus3Title", "bonus3Title");
-  setVal("fieldBonus3Body", "bonus3Body");
-  setVal("fieldBonus4Title", "bonus4Title");
-  setVal("fieldBonus4Body", "bonus4Body");
-  setVal("fieldFooterBrand", "footerBrand");
-  setVal("fieldFooterRights", "footerRights");
-  setVal("fieldFooterNote", "footerNote");
-  const accent = document.getElementById("fieldAccent");
-  if (accent) accent.value = content.themeAccent || DEFAULT_CONTENT.themeAccent;
-  const accent2 = document.getElementById("fieldAccentSecondary");
-  if (accent2)
-    accent2.value = content.themeAccentSecondary || DEFAULT_CONTENT.themeAccentSecondary;
-  const bgFrom = document.getElementById("fieldBgFrom");
-  if (bgFrom) bgFrom.value = content.bgFrom || DEFAULT_CONTENT.bgFrom;
-  const bgTo = document.getElementById("fieldBgTo");
-  if (bgTo) bgTo.value = content.bgTo || DEFAULT_CONTENT.bgTo;
-  setVal("fieldWaLink", "waLink");
-  setVal("fieldWaLabel", "waLabel");
+  
+  const fields = [
+    ["fieldHeroTitle", "heroTitle"], ["fieldHeroSubtitle", "heroSubtitle"],
+    ["fieldHeroMain", "heroMain"], ["fieldHeroMainAccent", "heroMainAccent"],
+    ["fieldHeroMainSuffix", "heroMainSuffix"], ["fieldHeroHighlight3", "heroHighlight3"],
+    ["fieldPrimaryCta", "primaryCta"], ["fieldHeroName", "heroName"],
+    ["fieldHeroExp", "heroExp"], ["fieldHeroImage", "heroImage"],
+    ["fieldAboutTitle", "aboutTitle"], ["fieldAboutSubtitle", "aboutSubtitle"],
+    ["fieldCoursesTitle", "coursesTitle"], ["fieldCoursesSubtitle", "coursesSubtitle"],
+    ["fieldBonusesTitle", "bonusesTitle"], ["fieldBonusesSubtitle", "bonusesSubtitle"],
+    ["fieldRegisterTitle", "registerTitle"], ["fieldRegisterSubtitle", "registerSubtitle"],
+    ["fieldCourse1Title", "course1Title"], ["fieldCourse1Tagline", "course1Tagline"],
+    ["fieldCourse1Price", "course1Price"], ["fieldCourse1Cta", "course1Cta"],
+    ["fieldCourse2Title", "course2Title"], ["fieldCourse2Tagline", "course2Tagline"],
+    ["fieldCourse2Price", "course2Price"], ["fieldCourse2Cta", "course2Cta"],
+    ["fieldBonus1Title", "bonus1Title"], ["fieldBonus1Body", "bonus1Body"],
+    ["fieldBonus2Title", "bonus2Title"], ["fieldBonus2Body", "bonus2Body"],
+    ["fieldBonus3Title", "bonus3Title"], ["fieldBonus3Body", "bonus3Body"],
+    ["fieldBonus4Title", "bonus4Title"], ["fieldBonus4Body", "bonus4Body"],
+    ["fieldFooterBrand", "footerBrand"], ["fieldFooterRights", "footerRights"],
+    ["fieldFooterNote", "footerNote"], ["fieldWaLink", "waLink"], ["fieldWaLabel", "waLabel"]
+  ];
+
+  fields.forEach(([id, key]) => setVal(id, key));
+  
+  if (document.getElementById("fieldAccent")) 
+    document.getElementById("fieldAccent").value = content.themeAccent || DEFAULT_CONTENT.themeAccent;
+  if (document.getElementById("fieldAccentSecondary"))
+    document.getElementById("fieldAccentSecondary").value = content.themeAccentSecondary || DEFAULT_CONTENT.themeAccentSecondary;
+  if (document.getElementById("fieldBgFrom"))
+    document.getElementById("fieldBgFrom").value = content.bgFrom || DEFAULT_CONTENT.bgFrom;
+  if (document.getElementById("fieldBgTo"))
+    document.getElementById("fieldBgTo").value = content.bgTo || DEFAULT_CONTENT.bgTo;
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+function readContent() {
+  const current = window.__ADMIN_CONTENT__ || DEFAULT_CONTENT;
+  const next = { ...current };
+  
+  const fields = [
+    ["fieldHeroTitle", "heroTitle"], ["fieldHeroSubtitle", "heroSubtitle"],
+    ["fieldHeroMain", "heroMain"], ["fieldHeroMainAccent", "heroMainAccent"],
+    ["fieldHeroMainSuffix", "heroMainSuffix"], ["fieldHeroHighlight3", "heroHighlight3"],
+    ["fieldPrimaryCta", "primaryCta"], ["fieldHeroName", "heroName"],
+    ["fieldHeroExp", "heroExp"], ["fieldHeroImage", "heroImage"],
+    ["fieldAboutTitle", "aboutTitle"], ["fieldAboutSubtitle", "aboutSubtitle"],
+    ["fieldCoursesTitle", "coursesTitle"], ["fieldCoursesSubtitle", "coursesSubtitle"],
+    ["fieldBonusesTitle", "bonusesTitle"], ["fieldBonusesSubtitle", "bonusesSubtitle"],
+    ["fieldRegisterTitle", "registerTitle"], ["fieldRegisterSubtitle", "registerSubtitle"],
+    ["fieldCourse1Title", "course1Title"], ["fieldCourse1Tagline", "course1Tagline"],
+    ["fieldCourse1Price", "course1Price"], ["fieldCourse1Cta", "course1Cta"],
+    ["fieldCourse2Title", "course2Title"], ["fieldCourse2Tagline", "course2Tagline"],
+    ["fieldCourse2Price", "course2Price"], ["fieldCourse2Cta", "course2Cta"],
+    ["fieldBonus1Title", "bonus1Title"], ["fieldBonus1Body", "bonus1Body"],
+    ["fieldBonus2Title", "bonus2Title"], ["fieldBonus2Body", "bonus2Body"],
+    ["fieldBonus3Title", "bonus3Title"], ["fieldBonus3Body", "bonus3Body"],
+    ["fieldBonus4Title", "bonus4Title"], ["fieldBonus4Body", "bonus4Body"],
+    ["fieldFooterBrand", "footerBrand"], ["fieldFooterRights", "footerRights"],
+    ["fieldFooterNote", "footerNote"], ["fieldWaLink", "waLink"], ["fieldWaLabel", "waLabel"],
+    ["fieldAccent", "themeAccent"], ["fieldAccentSecondary", "themeAccentSecondary"],
+    ["fieldBgFrom", "bgFrom"], ["fieldBgTo", "bgTo"]
+  ];
+
+  fields.forEach(([id, key]) => {
+    const el = document.getElementById(id);
+    if (el) next[key] = el.value.trim() || DEFAULT_CONTENT[key];
+  });
+  
+  next.themeBg = `radial-gradient(circle at top left, ${next.bgFrom} 0, ${next.bgTo} 46%, #050509 100%)`;
+  return next;
+}
+
+function logout() {
+  ADMIN_TOKEN = null;
+  localStorage.removeItem(TOKEN_KEY);
+  location.reload(); // Refresh to clear state and show login
+}
+
+async function init() {
+  const loader = document.getElementById("admin-loader");
+  const shell = document.getElementById("admin-shell");
   const loginSection = document.getElementById("admin-login");
   const panelSection = document.getElementById("admin-panel");
-  const loginBtn = document.getElementById("adminLoginBtn");
-  const loginMsg = document.getElementById("adminLoginMsg");
+  const logoutBtn = document.getElementById("logoutBtn");
 
-  loginBtn?.addEventListener("click", async () => {
-    const pwdInput = document.getElementById("adminPassword");
-    const pwd = pwdInput?.value ?? "";
-    if (!pwd) {
-      showAdminToast(loginMsg, "Parolni kiriting.", "error");
-      return;
-    }
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/admin/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify({ username: "admin", password: pwd }),
-      });
-      if (!res.ok) {
-        showAdminToast(loginMsg, "Noto'g'ri parol yoki login.", "error");
-        return;
-      }
-      const data = await res.json();
-      ADMIN_TOKEN = data.token;
-      localStorage.setItem(TOKEN_KEY, ADMIN_TOKEN);
-      showDashboard();
-    } catch (e) {
-      console.error(e);
-      showAdminToast(loginMsg, "Server bilan bog'lanib bo'lmadi.", "error");
-    }
-  });
-
-  async function showDashboard() {
-    if (loginSection) loginSection.style.display = "none";
-    if (panelSection) panelSection.style.display = "block";
+  if (ADMIN_TOKEN) {
     try {
       const content = await fetchContent();
       window.__ADMIN_CONTENT__ = content;
+      
+      loginSection.style.display = "none";
+      panelSection.style.display = "block";
+      logoutBtn.style.display = "inline-flex";
+      
       await renderRegistrationsTable();
       setupTabs();
       populateContentFields();
     } catch (e) {
-      console.error("Dashboard yuklashda xatolik:", e);
-      // Agar token muddati o'tgan bo'lsa yoki noto'g'ri bo'lsa
-      if (e.message.includes("401") || e.message.includes("token")) {
-        logout();
-      }
+      console.error("Auth check failed", e);
+      ADMIN_TOKEN = null;
+      localStorage.removeItem(TOKEN_KEY);
     }
   }
 
-  function logout() {
-    ADMIN_TOKEN = null;
-    localStorage.removeItem(TOKEN_KEY);
-    if (loginSection) loginSection.style.display = "block";
-    if (panelSection) panelSection.style.display = "none";
-  }
+  // Final UI reveal
+  loader.style.opacity = "0";
+  setTimeout(() => {
+    loader.style.visibility = "hidden";
+    shell.classList.add("admin-shell--ready");
+  }, 400);
 
-  // Sahifa yuklanganda token bo'lsa avtomatik dashboardni ko'rsatish
-  if (ADMIN_TOKEN) {
-    showDashboard();
-  }
+  // Event Listeners
+  document.getElementById("adminLoginBtn")?.addEventListener("click", async () => {
+    const pwd = document.getElementById("adminPassword")?.value;
+    const loginMsg = document.getElementById("adminLoginMsg");
+    if (!pwd) return showAdminToast(loginMsg, "Parolni kiriting", "error");
 
-  const table = document.getElementById("registrationsTable");
-  table?.addEventListener("click", (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLElement)) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: "admin", password: pwd }),
+      });
+      if (!res.ok) throw new Error("Parol noto'g'ri");
+      const data = await res.json();
+      ADMIN_TOKEN = data.token;
+      localStorage.setItem(TOKEN_KEY, ADMIN_TOKEN);
+      location.reload();
+    } catch (e) {
+      showAdminToast(loginMsg, e.message, "error");
+    }
+  });
+
+  logoutBtn?.addEventListener("click", logout);
+
+  document.getElementById("registrationsTable")?.addEventListener("click", (e) => {
+    const target = e.target;
     const action = target.getAttribute("data-action");
     if (!action) return;
-    const row = target.closest("tr");
-    if (!row) return;
-    const id = row.dataset.id;
-    if (!id) return;
-    if (action === "check") updateRegistrationStatus(id, "check");
-    if (action === "time") updateRegistrationStatus(id, "time");
-    if (action === "not") updateRegistrationStatus(id, "not");
+    const id = target.closest("tr")?.dataset.id;
+    if (id) updateRegistrationStatus(id, action);
   });
 
-  const saveContentBtn = document.getElementById("saveContentBtn");
-  const contentMsg = document.getElementById("contentMsg");
-  saveContentBtn?.addEventListener("click", async () => {
-    const heroTitle = document.getElementById("fieldHeroTitle")?.value.trim();
-    const heroSubtitle = document.getElementById("fieldHeroSubtitle")?.value.trim();
-    const current = readContent();
-    const next = {
-      ...current,
-      heroTitle: heroTitle || current.heroTitle,
-      heroSubtitle: heroSubtitle || current.heroSubtitle,
-      heroMain: document.getElementById("fieldHeroMain")?.value.trim() || current.heroMain,
-      heroMainAccent:
-        document.getElementById("fieldHeroMainAccent")?.value.trim() || current.heroMainAccent,
-      heroMainSuffix:
-        document.getElementById("fieldHeroMainSuffix")?.value.trim() || current.heroMainSuffix,
-      heroHighlight3:
-        document.getElementById("fieldHeroHighlight3")?.value.trim() || current.heroHighlight3,
-      primaryCta: document.getElementById("fieldPrimaryCta")?.value.trim() || current.primaryCta,
-      heroName: document.getElementById("fieldHeroName")?.value.trim() || current.heroName,
-      heroExp: document.getElementById("fieldHeroExp")?.value.trim() || current.heroExp,
-      heroImage: document.getElementById("fieldHeroImage")?.value.trim() || current.heroImage,
-      aboutTitle: document.getElementById("fieldAboutTitle")?.value.trim() || current.aboutTitle,
-      aboutSubtitle:
-        document.getElementById("fieldAboutSubtitle")?.value.trim() || current.aboutSubtitle,
-      coursesTitle:
-        document.getElementById("fieldCoursesTitle")?.value.trim() || current.coursesTitle,
-      coursesSubtitle:
-        document.getElementById("fieldCoursesSubtitle")?.value.trim() || current.coursesSubtitle,
-      bonusesTitle:
-        document.getElementById("fieldBonusesTitle")?.value.trim() || current.bonusesTitle,
-      bonusesSubtitle:
-        document.getElementById("fieldBonusesSubtitle")?.value.trim() || current.bonusesSubtitle,
-      registerTitle:
-        document.getElementById("fieldRegisterTitle")?.value.trim() || current.registerTitle,
-      registerSubtitle:
-        document.getElementById("fieldRegisterSubtitle")?.value.trim() || current.registerSubtitle,
-      course1Title:
-        document.getElementById("fieldCourse1Title")?.value.trim() || current.course1Title,
-      course1Tagline:
-        document.getElementById("fieldCourse1Tagline")?.value.trim() || current.course1Tagline,
-      course1Price:
-        document.getElementById("fieldCourse1Price")?.value.trim() || current.course1Price,
-      course1Cta: document.getElementById("fieldCourse1Cta")?.value.trim() || current.course1Cta,
-      course2Title:
-        document.getElementById("fieldCourse2Title")?.value.trim() || current.course2Title,
-      course2Tagline:
-        document.getElementById("fieldCourse2Tagline")?.value.trim() || current.course2Tagline,
-      course2Price:
-        document.getElementById("fieldCourse2Price")?.value.trim() || current.course2Price,
-      course2Cta: document.getElementById("fieldCourse2Cta")?.value.trim() || current.course2Cta,
-      bonus1Title:
-        document.getElementById("fieldBonus1Title")?.value.trim() || current.bonus1Title,
-      bonus1Body: document.getElementById("fieldBonus1Body")?.value.trim() || current.bonus1Body,
-      bonus2Title:
-        document.getElementById("fieldBonus2Title")?.value.trim() || current.bonus2Title,
-      bonus2Body: document.getElementById("fieldBonus2Body")?.value.trim() || current.bonus2Body,
-      bonus3Title:
-        document.getElementById("fieldBonus3Title")?.value.trim() || current.bonus3Title,
-      bonus3Body: document.getElementById("fieldBonus3Body")?.value.trim() || current.bonus3Body,
-      bonus4Title:
-        document.getElementById("fieldBonus4Title")?.value.trim() || current.bonus4Title,
-      bonus4Body: document.getElementById("fieldBonus4Body")?.value.trim() || current.bonus4Body,
-      footerBrand:
-        document.getElementById("fieldFooterBrand")?.value.trim() || current.footerBrand,
-      footerRights:
-        document.getElementById("fieldFooterRights")?.value.trim() || current.footerRights,
-      footerNote:
-        document.getElementById("fieldFooterNote")?.value.trim() || current.footerNote,
-      themeAccent:
-        document.getElementById("fieldAccent")?.value.trim() ||
-        current.themeAccent ||
-        DEFAULT_CONTENT.themeAccent,
-      themeAccentSecondary:
-        document.getElementById("fieldAccentSecondary")?.value.trim() ||
-        current.themeAccentSecondary ||
-        DEFAULT_CONTENT.themeAccentSecondary,
-      bgFrom:
-        document.getElementById("fieldBgFrom")?.value.trim() ||
-        current.bgFrom ||
-        DEFAULT_CONTENT.bgFrom,
-      bgTo:
-        document.getElementById("fieldBgTo")?.value.trim() ||
-        current.bgTo ||
-        DEFAULT_CONTENT.bgTo,
-      waLink:
-        document.getElementById("fieldWaLink")?.value.trim() ||
-        current.waLink ||
-        DEFAULT_CONTENT.waLink,
-      waLabel:
-        document.getElementById("fieldWaLabel")?.value.trim() ||
-        current.waLabel ||
-        DEFAULT_CONTENT.waLabel,
-    };
-    next.themeBg = `radial-gradient(circle at top left, ${next.bgFrom} 0, ${next.bgTo} 46%, #050509 100%)`;
+  document.getElementById("saveContentBtn")?.addEventListener("click", async () => {
+    const msg = document.getElementById("contentMsg");
     try {
+      const next = readContent();
       await saveContentToServer(next);
       window.__ADMIN_CONTENT__ = next;
-      showAdminToast(contentMsg, "Saqlangan. Asosiy saytni yangilab ko'ring.", "success");
+      showAdminToast(msg, "Muvaffaqiyatli saqlandi!");
     } catch (e) {
-      console.error(e);
-      showAdminToast(contentMsg, "Saqlab bo'lmadi. Keyinroq urinib ko'ring.", "error");
+      showAdminToast(msg, "Xatolik: " + e.message, "error");
     }
   });
 
-  const resetBtn = document.getElementById("resetContentBtn");
-  resetBtn?.addEventListener("click", async () => {
+  document.getElementById("resetContentBtn")?.addEventListener("click", async () => {
+    if (!confirm("Haqiqatan ham barcha o'zgarishlarni o'chirib, asli holiga qaytarmoqchimisiz?")) return;
+    const msg = document.getElementById("contentMsg");
     try {
       await saveContentToServer(DEFAULT_CONTENT);
       window.__ADMIN_CONTENT__ = DEFAULT_CONTENT;
       populateContentFields();
-      showAdminToast(
-        contentMsg,
-        "Barcha kontent va ranglar asl holatiga qaytarildi. Asosiy saytni yangilang.",
-        "success"
-      );
+      showAdminToast(msg, "Asli holiga qaytarildi");
     } catch (e) {
-      console.error(e);
-      showAdminToast(contentMsg, "Qaytarib bo'lmadi. Keyinroq urinib ko'ring.", "error");
+      showAdminToast(msg, e.message, "error");
     }
   });
-});
+}
 
+document.addEventListener("DOMContentLoaded", init);
